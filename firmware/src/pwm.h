@@ -39,11 +39,11 @@
 #define PWM_CLK_DIVIDER_VALUE           10 // TODO
 
 // Equations for mode 14 (Fast PWM with TOP in ICR1)
-// Note the resolution. For example.. at 100Khz, ICR1 = PWM_TOP = 159, so it has 7.3 bits of resolution.
-#define PWM_TOP 255
+// At 100 kHz with F_CPU = 16 MHz, ICR1 = PWM_TOP = 159 (16000000 / 100000 - 1)
+#define PWM_TOP 159
 #define PWM_RESOLUTION log10(PWM_TOP +1)/log10(2)
-#define PWM_D_MAX   0.95*PWM_TOP
-#define PWM_D_MIN   70
+#define PWM_D_MAX   ((uint16_t)(0.95f * PWM_TOP))
+#define PWM_D_MIN   ((uint16_t)(0.25f * PWM_TOP))
 void pwm_init(void);
 void pwm_compute(void);
 void pwm_reset(void);

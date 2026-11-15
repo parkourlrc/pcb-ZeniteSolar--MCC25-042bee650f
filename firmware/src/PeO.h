@@ -17,4 +17,5 @@ extern state_PeO_t state_PeO;
 
 void perturb_and_observe(void);
 void sweep_duty(void);
+void peo_reset(void);
 #endif /* PeO_H_ */

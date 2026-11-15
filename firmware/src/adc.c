@@ -127,9 +127,18 @@ ISR(ADC_vect){
             ADC_CHANNEL = 2;
             break;
         case 2:
-            adc_data_ready = 1;
-            CBUF_Push(cbuf_adc2, ADC);
-            ADC_CHANNEL = 0;
+            if (ADC >= ADC_UNDERVOLTAGE) {
+                    clr_EN_driver();
+                    for (int i = 0; i < cbuf_adc2_SIZE; i++) {
+                        CBUF_Push(cbuf_adc2, 0);  
+                    }
+                    state_machine = STATE_ERROR;
+            }
+            else{
+                adc_data_ready = 1;
+                CBUF_Push(cbuf_adc2, ADC);
+                ADC_CHANNEL = 0;
+            }
             break;
         default:
 

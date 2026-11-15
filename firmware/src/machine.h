@@ -16,12 +16,22 @@
 #include "adc.h"
 #endif
 
-//DEFINIÇÕES DE MEDIDAS
-#define MAXIMUM_PANEL_CURRENT 11.0f //11A
-#define MAXIMUM_PANEL_VOLTAGE 24.0f // 21V
-#define MAXIMUM_BATT_VOLTAGE 54.0f // 60V
-#define MINIMUM_BATT_VOLTAGE 28.0f //33V
+//DEFINIÇÕES DE MEDIDAS (TENSÕES E CORRENTES REAIS)
+#define MAXIMUM_PANEL_CURRENT 10.0f //10A
+#define MAXIMUM_PANEL_VOLTAGE 21.0f // 21V
+#define MAXIMUM_BATT_VOLTAGE 50.0f // 50V
+#define MINIMUM_BATT_VOLTAGE 28.0f //28V
 #define MINIMUM_PANEL_VOLTAGE 9.0f //9V
+
+// LIMITES EM CONVERSÃO DIRETA DO ADC (0 a 1023) PARA CHECAGEM RÁPIDA
+// Ipanel:  I = 0.032923627 * ADC - 16.62932491 => ADC = (I + 16.62932491) / 0.032923627
+#define ADC_MAX_PANEL_CURRENT   809    // ~10.0 A
+// Vpanel:  V = 0.020717284 * ADC - 0.057896889 => ADC = (V + 0.057896889) / 0.020717284
+#define ADC_MAX_PANEL_VOLTAGE   1016   // ~21.0 V
+#define ADC_MIN_PANEL_VOLTAGE   437    // ~9.0 V
+// Vbatt:   V = 0.066479683 * ADC - 0.156185641 => ADC = (V + 0.156185641) / 0.066479683
+#define ADC_MAX_BATT_VOLTAGE    634    // ~42,0 V
+#define ADC_MIN_BATT_VOLTAGE    363    // ~24.0 V
 
 //DEFINIÇÕES GERAIS
 #define LED PC5
@@ -68,9 +78,7 @@ extern volatile error_flags_t error_flags;
 
 void machine_init(void);
 void check_buffers(void);
-void check_panel_voltage(void);
-void check_panel_current(void);
-void check_batt_voltage(void);
+void check_electrical_limits_adc(uint16_t raw_i_panel, uint16_t raw_v_panel, uint16_t raw_v_batt);
 void read_and_check_adcs(void);
 void clr_EN_driver(void);
 void set_EN_driver(void);

@@ -36,6 +36,7 @@ void pwm_reset(void)
 {
     set_pwm_off();
 #ifdef MACHINE_ON
+    clr_EN_driver();
     control.D = 0;
 #endif
     usart_send_string("PWM turned off!\n");
@@ -59,6 +60,8 @@ void pwm_compute(void){
     usart_send_float(control.i_panel[0],4);
     usart_send_string(" D:");
     usart_send_uint16(control.D);
+    usart_send_string(" V_batt:");
+    usart_send_float(control.v_batt[0],4);
     usart_send_string("\n");
 
    // perturb_and_observe();

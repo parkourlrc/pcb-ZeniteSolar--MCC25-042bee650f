@@ -17,29 +17,44 @@ volatile float max_power_duty_cycle;
 
 static uint8_t done;
 static uint8_t callSweep;
+static float peo_step = PERTURB_AND_OBSERVE_STEP;
+static float peo_direction = PERTURB_AND_OBSERVE_INITIAL_DIRECTION;
+
+void peo_reset(void) {
+    max_power = 0.0f;
+    max_power_duty_cycle = PWM_D_MIN;
+    done = 0;
+    callSweep = 0;
+    peo_step = PERTURB_AND_OBSERVE_STEP;
+    peo_direction = PERTURB_AND_OBSERVE_INITIAL_DIRECTION;
+    #ifdef MACHINE_ON
+    control.sweep_done = 0;
+    control.pi[0] = 0;
+    control.pi[1] = 0;
+    control.v_panel[1] = 0;
+    control.i_panel[1] = 0;
+    #endif
+}
 
 void perturb_and_observe(void){
-    static float step = PERTURB_AND_OBSERVE_STEP;
-    static float direction = PERTURB_AND_OBSERVE_INITIAL_DIRECTION;
-
     // Computes power input
     control.pi[0] = control.v_panel[0] * control.i_panel[0];
 
     //Derivate power
-    float dpi = (control.pi[0]) -(control.pi[1]);
+    float dpi = (control.pi[0]) - (control.pi[1]);
 
     if(dpi <= PERTURB_AND_OBSERVE_DERIVATIVE_THRESHOLD){
-        step = PERTURB_AND_OBSERVE_STEP;
-        direction = -direction;
+        peo_step = PERTURB_AND_OBSERVE_STEP;
+        peo_direction = -peo_direction;
     }
 
-    step += 0.15f;
-    if (step > 3.0f)
+    peo_step += 0.15f;
+    if (peo_step > 3.0f)
     {
-        step = 3.0f;
+        peo_step = 3.0f;
     }
 
-    control.D = (uint16_t)(control.D + direction * step);
+    control.D = (uint16_t)(control.D + peo_direction * peo_step);
 
     /* Save values for next iteration */
     control.pi[1] = control.pi[0];

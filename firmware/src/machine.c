@@ -1,6 +1,7 @@
 #include "machine.h"
 #include "usart.h"
 #include "pwm.h"
+#include "PeO.h"
 
 // Global variable definitions
 volatile uint8_t machine_clk;
@@ -38,65 +39,59 @@ void check_buffers(void)
     //VERBOSE_MSG_MACHINE(usart_send_string(" \t\tdone.\n")); 
 }
 
-void check_panel_voltage(void)
+void check_electrical_limits_adc(uint16_t raw_i_panel, uint16_t raw_v_panel, uint16_t raw_v_batt)
 {
-    if(control.v_panel[0] >= MAXIMUM_PANEL_VOLTAGE){
+    // Painel: Tensão
+    if (raw_v_panel >= ADC_MAX_PANEL_VOLTAGE) {
         error_flags.overvolt_panel = 1;
-    }
-    else if(control.v_panel[0] <= MINIMUM_PANEL_VOLTAGE){
+    } else if (raw_v_panel <= ADC_MIN_PANEL_VOLTAGE) {
         error_flags.undervolt_panel = 1;
-    }
-    else{
+    } else {
         error_flags.overvolt_panel = 0;
         error_flags.undervolt_panel = 0;
-        error_flags.overvoltage = 0;
-        error_flags.undervoltage = 0;
     }
-}
 
-void check_panel_current(void)
-{
-    if(control.i_panel[0] >= MAXIMUM_PANEL_CURRENT)
-    {
+    // Painel: Corrente
+    if (raw_i_panel >= ADC_MAX_PANEL_CURRENT) {
         error_flags.overcurrent = 1;
-    }
-    else{
+    } else {
         error_flags.overcurrent = 0;
     }
-}
-void check_batt_voltage(void){
-    if(control.v_batt[0] >= MAXIMUM_BATT_VOLTAGE){
+
+    // Bateria: Tensão
+    if (raw_v_batt >= ADC_MAX_BATT_VOLTAGE) {
         error_flags.overvoltage = 1;
-    } else if(control.v_batt[0] <= MINIMUM_BATT_VOLTAGE){
+    } else if (raw_v_batt <= ADC_MIN_BATT_VOLTAGE) {
         error_flags.undervoltage = 1;
-    } else{
+    } else {
         error_flags.overvoltage = 0;
         error_flags.undervoltage = 0;
     }
 }
+
 void read_and_check_adcs(void){
 #ifdef ADC_ON
-    control.i_panel[0] = ipanel_to_float(ma_adc0());
-    control.v_panel[0] = vpanel_to_float(ma_adc1());
-    control.v_batt[0] = vbat_to_float(ma_adc2());
+    uint16_t raw_i = ma_adc0();
+    uint16_t raw_vp = ma_adc1();
+    uint16_t raw_vb = ma_adc2();
 
-    //control.vbatt = vbaterry_to_float(ma_adc2); //TODO terminar
-    switch(state_machine){
-        case STATE_INITIALIZING:
-            check_panel_voltage();
-            check_panel_current();
-            check_batt_voltage();
+    // 1. Verificação instantânea centralizada nos limites inteiros do ADC
+    check_electrical_limits_adc(raw_i, raw_vp, raw_vb);
 
-            break;
-        case STATE_RUNNING:
-            check_panel_voltage();
-            check_panel_current();
-            check_batt_voltage();
-
-            break;      
-        default:
-            break;
+    // Se qualquer limite for violado durante a operação, corta PWM imediatamente e vai para erro
+    if (error_flags.all) {
+        #ifdef PWM_ON
+            set_pwm_off();
+            clr_EN_driver();
+            control.D = 0;
+        #endif
+        state_machine = STATE_ERROR;
     }
+
+    // 2. Converte para engenharia (float) para uso no MPPT e telemetria
+    control.i_panel[0] = ipanel_to_float(raw_i);
+    control.v_panel[0] = vpanel_to_float(raw_vp);
+    control.v_batt[0]  = vbat_to_float(raw_vb);
 #endif
 }
 
@@ -115,52 +110,26 @@ void clr_EN_driver(void){
 }
 
 void task_initializing(void){
-    //control.i_panel[0] = ipanel_to_float(ma_adc0());
-    //control.v_panel[0] = vpanel_to_float(ma_adc1());
     set_LED();
-    control.sweep_done = 0;
-    //sweep(); --> Fazer uma varredura para encontrar a melhor faixa de operação
-
-    //Verificando os limites elétricos
-    //check_buffers();
-    check_panel_voltage(); 
-    check_panel_current();
-    check_batt_voltage();
-    //set_EN_driver();
+    peo_reset();
 
     if(!error_flags.all){
         usart_send_string("Inicializando o sistema!\n");
+        set_EN_driver();
         state_machine = STATE_RUNNING;
     }else{
         usart_send_string("Não foi possível inicializar!\n");
+        clr_EN_driver();
         state_machine = STATE_ERROR;
     }
 }
 void task_running(void){
-    static uint8_t led_state = 0;
-    check_panel_voltage(); 
-    check_panel_current();
-    check_batt_voltage();
     #ifdef PWM_ON
-        if ((tick - set_tick) == 500){
+        if ((tick - set_tick) >= 100){
             set_tick = tick;
             pwm_compute();
-            
         }
-        
     #endif
-
-
-    // TODO add usart msgs
-
-    //chamar o check limites eletricos 
-    //TODO logica de primeira corrida
-        //sweep duty inicial 
-    //P&O
-    //COnsider duty limit
-        // set duty  
-    
-
 }
 void task_error(void){
     #ifdef PWM_ON
